@@ -164,13 +164,17 @@ export class Scene {
             }
         })
 
-        const bounds = new THREE.Box3().setFromObject(instance)
-        const size = bounds.getSize(new THREE.Vector3())
+        const { size: baseSize } = await this.getModelDimensions(modelName)
+        const scaledSize = new THREE.Vector3(
+            baseSize.x * instance.scale.x,
+            baseSize.y * instance.scale.y,
+            baseSize.z * instance.scale.z,
+        )
 
         const halfExtents = new CANNON.Vec3(
-            Math.max(size.x / 2, 0.05),
-            Math.max(size.y / 2, 0.05),
-            Math.max(size.z / 2, 0.05),
+            Math.max(scaledSize.x / 2, 0.05),
+            Math.max(scaledSize.y / 2, 0.05),
+            Math.max(scaledSize.z / 2, 0.05),
         )
 
         const { physics = {} } = options

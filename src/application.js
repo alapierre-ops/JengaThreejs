@@ -211,6 +211,11 @@ export class Application {
             return
         }
 
+        if (this.moveSelectedObject && this.selectedObject) {
+            this.finishObjectMove()
+            return
+        }
+
         const rect = this.renderer.domElement.getBoundingClientRect()
 
         const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
@@ -289,6 +294,22 @@ export class Application {
         this.ui.updateSelectionInfo(object)
     }
 
+    startObjectMove() {
+        if (!this.selectedObject) {
+            return
+        }
+
+        this.moveSelectedObject = true
+    }
+
+    finishObjectMove() {
+        if (!this.moveSelectedObject) {
+            return
+        }
+
+        this.moveSelectedObject = false
+    }
+
     clearSelection() {
         if (this.selectedMesh && this.selectedMeshMaterial) {
             this.selectedMesh.material = this.selectedMeshMaterial
@@ -297,13 +318,36 @@ export class Application {
         this.selectedObject = null
         this.selectedMesh = null
         this.selectedMeshMaterial = null
-        
+        this.moveSelectedObject = false
+
         this.ui.updateSelectionInfo(null)
     }
 
+    updateSelectedObjectPosition(x, y, z) {
+        if (!this.selectedObject) {
+            return
+        }
+
+        this.selectedObject.position.set(x, y, z)
+
+        const physicsBody = this.selectedObject.userData?.physicsBody
+        if (physicsBody) {
+            physicsBody.position.set(x, y, z)
+            physicsBody.velocity.set(0, 0, 0)
+            physicsBody.angularVelocity.set(0, 0, 0)
+        }
+
+        this.ui.updateSelectionInfo(this.selectedObject)
+    }
+
     onKeyDown(event) {
-        if (event.key === 'g' || event.key === 'G') {
-            this.moveSelectedObject = !this.moveSelectedObject
+        if ((event.key === 'g' || event.key === 'G') && this.selectedObject) {
+            event.preventDefault()
+            if (this.moveSelectedObject) {
+                this.finishObjectMove()
+            } else {
+                this.startObjectMove()
+            }
         }
         
         if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedObject) {
@@ -333,8 +377,7 @@ export class Application {
 
         if (intersection) {
             const currentY = this.selectedObject.position.y
-            this.selectedObject.position.set(intersection.x, currentY, intersection.z)
-            this.ui.updateSelectionInfo(this.selectedObject)
+            this.updateSelectedObjectPosition(intersection.x, currentY, intersection.z)
         }
     }
 
@@ -438,9 +481,16 @@ export class Application {
         const direction = new THREE.Vector3(0, 0, -1)
         direction.applyQuaternion(camera.quaternion)
         direction.normalize()
+
+        const horizontalDirection = new THREE.Vector3(direction.x, 0, direction.z)
+        if (horizontalDirection.lengthSq() < 1e-6) {
+            horizontalDirection.set(0, 0, -1)
+        } else {
+            horizontalDirection.normalize()
+        }
         
-        const distance = 10
-        const position = camera.position.clone().add(direction.clone().multiplyScalar(distance))
+        const distance = 30
+        const position = camera.position.clone().add(horizontalDirection.multiplyScalar(distance))
         position.y = 2
 
         const physicsOptions = modelName === 'jenga'
@@ -475,6 +525,10 @@ export class Application {
         this.physicsParams.enabled = enabled
         this.sceneManager.setPhysicsEnabled(enabled)
 
+        if (this.ui?.updatePhysicsToggle) {
+            this.ui.updatePhysicsToggle(enabled)
+        }
+
         if (enabled) {
             this.moveSelectedObject = false
             this.clearSelection()
@@ -482,11 +536,16 @@ export class Application {
     }
 
     async resetTower() {
+        const wasPhysicsEnabled = this.physicsEnabled
         this.setPhysicsEnabled(false)
         await this.sceneManager.resetJengaTower({
             layers: this.towerParams.layers,
             basePosition: this.towerParams.basePosition,
         })
+
+        if (wasPhysicsEnabled) {
+            this.setPhysicsEnabled(true)
+        }
     }
 
     async updateTowerLayers(layers) {

@@ -6,12 +6,15 @@ export class UI {
         this.selectionFolder = null
         this.selectionData = {
             name: '',
-            position: '0, 0, 0',
+            position: { x: 0, y: 0, z: 0 },
             rotation: '0, 0, 0',
             scale: '1, 1, 1'
         }
         this.selectedObjectRef = null
         this.onSelectionChange = null
+        this.positionControllers = null
+        this.physicsController = null
+        this.selectionNameController = null
     }
 
     addCameraControlsUI(params, onChange) {
@@ -40,7 +43,7 @@ export class UI {
 
         const folder = this.gui.addFolder('Jenga')
 
-        folder
+        this.physicsController = folder
             .add(physicsParams, 'enabled')
             .name('Enable Physics')
             .onChange((value) => {
@@ -194,7 +197,7 @@ export class UI {
         this.onSelectionChange = onChange
         this.selectionFolder = this.gui.addFolder('Selected Object')
         
-        this.selectionFolder
+        this.selectionNameController = this.selectionFolder
             .add(this.selectionData, 'name')
             .name('Name')
             .onChange((value) => {
@@ -203,17 +206,29 @@ export class UI {
                 }
             })
         
-        this.selectionFolder
-            .add(this.selectionData, 'position')
-            .name('Position (x, y, z)')
-            .onChange((value) => {
-                if (this.selectedObjectRef) {
-                    const values = value.split(',').map(v => parseFloat(v.trim()))
-                    if (values.length === 3 && values.every(v => !isNaN(v))) {
-                        this.selectedObjectRef.position.set(values[0], values[1], values[2])
-                    }
-                }
-            })
+        const updatePosition = () => {
+            if (!this.selectedObjectRef) {
+                return
+            }
+
+            const { x, y, z } = this.selectionData.position
+            this.selectedObjectRef.position.set(x, y, z)
+        }
+
+        this.positionControllers = {
+            x: this.selectionFolder
+                .add(this.selectionData.position, 'x')
+                .name('Position X')
+                .onChange(updatePosition),
+            y: this.selectionFolder
+                .add(this.selectionData.position, 'y')
+                .name('Position Y')
+                .onChange(updatePosition),
+            z: this.selectionFolder
+                .add(this.selectionData.position, 'z')
+                .name('Position Z')
+                .onChange(updatePosition),
+        }
         
         this.selectionFolder
             .add(this.selectionData, 'rotation')
@@ -253,7 +268,9 @@ export class UI {
             this.selectionData.name = object.name || 'Unnamed'
             
             const pos = object.position
-            this.selectionData.position = `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}`
+            this.selectionData.position.x = parseFloat(pos.x.toFixed(2))
+            this.selectionData.position.y = parseFloat(pos.y.toFixed(2))
+            this.selectionData.position.z = parseFloat(pos.z.toFixed(2))
             
             const rot = object.rotation
             this.selectionData.rotation = `${rot.x.toFixed(2)}, ${rot.y.toFixed(2)}, ${rot.z.toFixed(2)}`
@@ -261,9 +278,31 @@ export class UI {
             const scale = object.scale
             this.selectionData.scale = `${scale.x.toFixed(2)}, ${scale.y.toFixed(2)}, ${scale.z.toFixed(2)}`
             
+            if (this.positionControllers) {
+                Object.values(this.positionControllers).forEach((controller) => {
+                    controller.updateDisplay()
+                })
+            }
+
+            if (this.selectionNameController) {
+                this.selectionNameController.updateDisplay()
+            }
+
             this.selectionFolder.show()
         } else {
             this.selectionFolder.hide()
         }
+    }
+
+    updatePhysicsToggle(enabled) {
+        if (!this.physicsController) {
+            return
+        }
+
+        if (typeof enabled === 'boolean') {
+            this.physicsController.object.enabled = enabled
+        }
+
+        this.physicsController.updateDisplay()
     }
 }
