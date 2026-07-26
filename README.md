@@ -3,6 +3,8 @@
 Build, arrange, and topple a tower of Jenga blocks in the browser using Three.js and Cannon‑ES.  
 This project repurposes the original forest scene template into a focused physics playground tailored for Jenga experiments.
 
+**Live:** https://jenga.axel-lapierre.dev
+
 ### Features
 - Pre-built tower of alternating Jenga layers on load.
 - Edit mode with selection highlighting and `G`-draggable block positioning.
